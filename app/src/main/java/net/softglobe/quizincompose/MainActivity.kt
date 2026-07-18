@@ -15,33 +15,40 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import net.softglobe.quizincompose.model.QuizApp
 import net.softglobe.quizincompose.ui.theme.QuizInComposeTheme
-import kotlin.text.compareTo
+import net.softglobe.quizincompose.viewmodel.QuizViewModel
+import net.softglobe.quizincompose.viewmodel.QuizViewModelFactory
+import net.softglobe.quizincompose.viewmodel.UiState
 
 class MainActivity : ComponentActivity() {
-    var isResultDisplayed by mutableStateOf(false)
-    var totalScore = getQuestions().size
-    var score = 0
+
+    val app by lazy { application as QuizApp }
+    val viewModel by lazy {
+        ViewModelProvider.create(
+            owner = this,
+            factory = QuizViewModelFactory(app.repository)
+        )[QuizViewModel::class.java]
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             QuizInComposeTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Box(
@@ -49,10 +56,14 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        if (!isResultDisplayed) {
-                            QuizScreen()
+                        if (uiState.questions.isEmpty()) {
+                            CircularProgressIndicator()
                         } else {
-                            ResultScreen()
+                            if (!uiState.isResultDisplayed) {
+                                QuizScreen(uiState)
+                            } else {
+                                ResultScreen(uiState)
+                            }
                         }
                     }
                 }
@@ -60,13 +71,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @Preview(showBackground = true)
     @Composable
-    fun QuizScreen() {
-        val questionsList = remember { getQuestions() }
-        var currentQuestionIndex by remember { mutableIntStateOf(0) }
-        val currentQuestion = questionsList[currentQuestionIndex]
-        var selectedOptionIndex by remember { mutableIntStateOf(-1) }
+    fun QuizScreen(uiState: UiState) {
+        val currentQuestion = uiState.questions[uiState.currentQuestionIndex]
 
         Column(
             modifier = Modifier.fillMaxSize()
@@ -82,13 +89,13 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
-                            selectedOptionIndex = index
+                            viewModel.onOptionSelected(index)
                         },
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     RadioButton(
-                        selected = (selectedOptionIndex == index),
-                        onClick = { selectedOptionIndex = index }
+                        selected = (uiState.selectedOptionIndex == index),
+                        onClick = { viewModel.onOptionSelected(index) }
                     )
                     Text(
                         text = string,
@@ -102,34 +109,25 @@ class MainActivity : ComponentActivity() {
                     .fillMaxWidth()
                     .padding(horizontal = 10.dp),
                 onClick = {
-                    if (selectedOptionIndex == currentQuestion.correctAnswerIndex) {
-                        score++
-                    }
-                    if (currentQuestionIndex < questionsList.size - 1) {
-                        currentQuestionIndex++
-                        selectedOptionIndex = -1
-                    } else {
-                        isResultDisplayed = true
-                    }
+                    viewModel.onNextClicked()
                 }
             ) {
                 Text(
-                    text = if (currentQuestionIndex == questionsList.size-1) "Show Result" else "Next Question"
+                    text = if (uiState.currentQuestionIndex == uiState.questions.size-1) "Show Result" else "Next Question"
                 )
             }
         }
     }
 
 
-    @Preview(showBackground = true)
     @Composable
-    private fun ResultScreen() {
+    private fun ResultScreen(uiState: UiState) {
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            val isPassed = score >= totalScore*0.5
+            val isPassed = uiState.score >= uiState.totalScore*0.5
             Text(
                 text = if (isPassed) "🎉" else "😔",
                 style = MaterialTheme.typography.titleLarge,
@@ -152,8 +150,7 @@ class MainActivity : ComponentActivity() {
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp),
                 onClick = {
-                    isResultDisplayed = false
-                    score = 0
+                    viewModel.restartQuiz()
                 }
             ) {
                 Text(
@@ -161,40 +158,5 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
-    }
-
-    fun getQuestions() : List<QuestionModel> {
-        return listOf(
-            QuestionModel(
-                question = "Which of the following is software?",
-                options = listOf(
-                    "Keyboard",
-                    "MS Word",
-                    "Speakers",
-                    "Mouse"
-                ),
-                correctAnswerIndex = 1
-            ),
-            QuestionModel(
-                question = "What does RAM stands for",
-                options = listOf(
-                    "Review Admittance Monitor",
-                    "Review Admittance Memory",
-                    "Random Access Memory",
-                    "Random Access Monitor"
-                ),
-                correctAnswerIndex = 2
-            ),
-            QuestionModel(
-                question = "What does BIOS stand for",
-                options = listOf(
-                    "Basic Input/Output System",
-                    "Basic Inbox/Outbox System",
-                    "Between Input/Output System",
-                    "Between Input/Output Service"
-                ),
-                correctAnswerIndex = 0
-            ),
-        )
     }
 }
