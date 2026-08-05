@@ -1,0 +1,13 @@
+# Basic detekt configuration (customize as needed)
+build:
+  maxIssues: 0
+
+processors:
+  active: true
+
+formatting:
+  active: true
+
+rules:
+  comments:
+    active: true

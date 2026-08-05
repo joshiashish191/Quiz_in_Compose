@@ -13,3 +13,24 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Production secrets (do NOT commit keystores or service account keys)
+# Keystore files
+*.jks
+*.keystore
+keystore.properties
+release.keystore
+
+# Service account / Firebase
+/service-account.json
+google-services.json
+
+# Environment files
+.env
+*.env
+/.secrets
+
+# CI artifacts
+/.gradle
+/.idea
+

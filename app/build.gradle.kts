@@ -22,13 +22,31 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        // Signing config uses environment variables set in CI or local keystore properties.
+        create("release") {
+            // Do NOT commit keystore. Use CI secrets or local properties.
+            // Example (CI): storeFile = file(System.getenv("KEYSTORE_PATH"))
+            // storePassword = System.getenv("KEYSTORE_PASSWORD")
+            // keyAlias = System.getenv("KEY_ALIAS")
+            // keyPassword = System.getenv("KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            // Only set signingConfig if keystore path is provided (CI or local env).
+            val keystorePath = System.getenv("KEYSTORE_PATH")
+            if (keystorePath != null && file(keystorePath).exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            isDebuggable = false
         }
     }
     compileOptions {
@@ -50,6 +68,8 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     testImplementation(libs.junit)
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    testImplementation("androidx.arch.core:core-testing:2.2.0")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
@@ -62,4 +82,9 @@ dependencies {
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion") // For Coroutines support
     ksp("androidx.room:room-compiler:$roomVersion")
+
+    // To export Room schema, configure KSP arguments in your environment or CI.
+    // Example (if KSP supports 'ksp' block in your Gradle version):
+    // ksp { arg("room.schemaLocation", "$projectDir/schemas") }
+    // Alternatively, set exportSchema = false in @Database annotation for tests/quick setups.
 }
