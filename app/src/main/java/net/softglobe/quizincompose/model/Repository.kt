@@ -11,4 +11,12 @@ class Repository(private val quizDao: QuizDao) {
     fun getAllQuestions() : Flow<List<QuestionModel>> {
         return quizDao.getAllQuestions()
     }
+
+    suspend fun insertQuizAttempt(attempt: QuizAttempt) {
+        quizDao.insertQuizAttempt(attempt)
+    }
+
+    fun getQuizAttempts(): Flow<List<QuizAttempt>> {
+        return quizDao.getQuizAttempts()
+    }
 }

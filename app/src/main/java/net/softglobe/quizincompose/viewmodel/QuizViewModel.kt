@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.softglobe.quizincompose.model.QuestionModel
+import net.softglobe.quizincompose.model.QuizAttempt
 import net.softglobe.quizincompose.model.Repository
 
 
@@ -15,7 +16,8 @@ data class UiState(
     val score : Int = 0,
     val questions : List<QuestionModel> = emptyList(),
     val currentQuestionIndex : Int = 0,
-    val selectedOptionIndex : Int = -1
+    val selectedOptionIndex : Int = -1,
+    val quizAttempts: List<QuizAttempt> = emptyList()
 )
 
 class QuizViewModel(private val repository: Repository) : ViewModel() {
@@ -36,6 +38,11 @@ class QuizViewModel(private val repository: Repository) : ViewModel() {
                         )
                     }
                 }
+            }
+        }
+        viewModelScope.launch {
+            repository.getQuizAttempts().collect { attempts ->
+                uiState.update { it.copy(quizAttempts = attempts) }
             }
         }
     }
@@ -86,26 +93,35 @@ class QuizViewModel(private val repository: Repository) : ViewModel() {
     }
 
     fun onNextClicked() {
-        val selectedOptionIndex = uiState.value.selectedOptionIndex
-        val currentQuestion = uiState.value.questions[uiState.value.currentQuestionIndex]
-        if (selectedOptionIndex == currentQuestion.correctAnswerIndex) {
+        val state = uiState.value
+        if (state.isResultDisplayed || state.questions.isEmpty()) return
+
+        val currentQuestion = state.questions[state.currentQuestionIndex]
+        val score = state.score +
+            if (state.selectedOptionIndex == currentQuestion.correctAnswerIndex) 1 else 0
+
+        if (state.currentQuestionIndex < state.questions.size - 1) {
             uiState.update {
                 it.copy(
-                    score = it.score+1
-                )
-            }
-        }
-        if (uiState.value.currentQuestionIndex < uiState.value.questions.size - 1) {
-            uiState.update {
-                it.copy(
-                    currentQuestionIndex = it.currentQuestionIndex+1,
+                    score = score,
+                    currentQuestionIndex = it.currentQuestionIndex + 1,
                     selectedOptionIndex = -1
                 )
             }
         } else {
             uiState.update {
                 it.copy(
+                    score = score,
                     isResultDisplayed = true
+                )
+            }
+            viewModelScope.launch {
+                repository.insertQuizAttempt(
+                    QuizAttempt(
+                        score = score,
+                        totalQuestions = state.questions.size,
+                        completedAt = System.currentTimeMillis()
+                    )
                 )
             }
         }

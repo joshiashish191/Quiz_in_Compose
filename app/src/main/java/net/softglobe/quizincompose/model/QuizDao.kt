@@ -12,5 +12,11 @@ interface QuizDao {
     suspend fun insertQuestions(questions : List<QuestionModel>)
 
     @Query("SELECT * FROM questions")
-    fun getAllQuestions() : Flow<List<QuestionModel>>
+    fun getAllQuestions(): Flow<List<QuestionModel>>
+
+    @Upsert
+    suspend fun insertQuizAttempt(attempt: QuizAttempt)
+
+    @Query("SELECT * FROM quiz_attempts ORDER BY completedAt DESC, id DESC")
+    fun getQuizAttempts(): Flow<List<QuizAttempt>>
 }
