@@ -6,16 +6,20 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.softglobe.quizincompose.model.QuestionModel
+import net.softglobe.quizincompose.model.QuizAttempt
 import net.softglobe.quizincompose.model.Repository
 
 
 data class UiState(
     val isResultDisplayed : Boolean = false,
+    val isHistoryDisplayed: Boolean = false,
+    val isAttemptSaved: Boolean = false,
     val totalScore : Int = 0,
     val score : Int = 0,
     val questions : List<QuestionModel> = emptyList(),
     val currentQuestionIndex : Int = 0,
-    val selectedOptionIndex : Int = -1
+    val selectedOptionIndex : Int = -1,
+    val attemptHistory: List<QuizAttempt> = emptyList()
 )
 
 class QuizViewModel(private val repository: Repository) : ViewModel() {
@@ -35,6 +39,14 @@ class QuizViewModel(private val repository: Repository) : ViewModel() {
                             totalScore = questions.size
                         )
                     }
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            repository.getAllAttempts().collect { attempts ->
+                uiState.update {
+                    it.copy(attemptHistory = attempts)
                 }
             }
         }
@@ -88,6 +100,9 @@ class QuizViewModel(private val repository: Repository) : ViewModel() {
     fun onNextClicked() {
         val selectedOptionIndex = uiState.value.selectedOptionIndex
         val currentQuestion = uiState.value.questions[uiState.value.currentQuestionIndex]
+        val finalScore = uiState.value.score +
+            if (selectedOptionIndex == currentQuestion.correctAnswerIndex) 1 else 0
+
         if (selectedOptionIndex == currentQuestion.correctAnswerIndex) {
             uiState.update {
                 it.copy(
@@ -103,9 +118,22 @@ class QuizViewModel(private val repository: Repository) : ViewModel() {
                 )
             }
         } else {
+            if (uiState.value.isAttemptSaved) return
             uiState.update {
                 it.copy(
-                    isResultDisplayed = true
+                    score = finalScore,
+                    isResultDisplayed = true,
+                    isAttemptSaved = true
+                )
+            }
+            viewModelScope.launch {
+                repository.insertAttempt(
+                    QuizAttempt(
+                        score = finalScore,
+                        totalScore = uiState.value.questions.size,
+                        passed = finalScore >= uiState.value.questions.size * 0.5,
+                        completedAt = System.currentTimeMillis()
+                    )
                 )
             }
         }
@@ -115,10 +143,24 @@ class QuizViewModel(private val repository: Repository) : ViewModel() {
         uiState.update {
             it.copy(
                 isResultDisplayed = false,
+                isHistoryDisplayed = false,
+                isAttemptSaved = false,
                 score = 0,
                 selectedOptionIndex = -1,
                 currentQuestionIndex = 0
             )
+        }
+    }
+
+    fun showHistory() {
+        uiState.update {
+            it.copy(isHistoryDisplayed = true)
+        }
+    }
+
+    fun hideHistory() {
+        uiState.update {
+            it.copy(isHistoryDisplayed = false)
         }
     }
 }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -26,13 +27,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import net.softglobe.quizincompose.model.QuizAttempt
 import net.softglobe.quizincompose.model.QuizApp
 import net.softglobe.quizincompose.ui.theme.QuizInComposeTheme
 import net.softglobe.quizincompose.viewmodel.QuizViewModel
 import net.softglobe.quizincompose.viewmodel.QuizViewModelFactory
 import net.softglobe.quizincompose.viewmodel.UiState
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
 
@@ -56,7 +63,9 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        if (uiState.questions.isEmpty()) {
+                        if (uiState.isHistoryDisplayed) {
+                            HistoryScreen(uiState.attemptHistory)
+                        } else if (uiState.questions.isEmpty()) {
                             CircularProgressIndicator()
                         } else {
                             if (!uiState.isResultDisplayed) {
@@ -78,6 +87,17 @@ class MainActivity : ComponentActivity() {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Button(onClick = { viewModel.showHistory() }) {
+                    Text("History")
+                }
+            }
+
             Text(
                 text = currentQuestion.question,
                 style = MaterialTheme.typography.headlineMedium
@@ -145,6 +165,22 @@ class MainActivity : ComponentActivity() {
                 fontSize = 20.sp
             )
             Spacer(Modifier.height(10.dp))
+            Text(
+                text = "Score: ${uiState.score} / ${uiState.totalScore}",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(Modifier.height(10.dp))
+            Button(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                onClick = {
+                    viewModel.showHistory()
+                }
+            ) {
+                Text("View History")
+            }
+            Spacer(Modifier.height(10.dp))
             Button(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -158,5 +194,66 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    @Composable
+    private fun HistoryScreen(attempts: List<QuizAttempt>) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Quiz History",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+                Button(onClick = { viewModel.hideHistory() }) {
+                    Text("Back")
+                }
+            }
+
+            if (attempts.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("No quiz attempts yet")
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(attempts, key = { it.id ?: it.completedAt }) { attempt ->
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = if (attempt.passed) "Passed" else "Failed",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Text(
+                                    text = "Score: ${attempt.score} / ${attempt.totalScore}",
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                Text(
+                                    text = formatAttemptTime(attempt.completedAt),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun formatAttemptTime(timestamp: Long): String {
+        val formatter = SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault())
+        return formatter.format(Date(timestamp))
     }
 }

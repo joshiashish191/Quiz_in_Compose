@@ -9,7 +9,9 @@ class QuizApp : Application() {
             this,
             QuizDatabase::class.java,
             "quizdb.db"
-        ).build()
+        )
+            .addMigrations(QuizDatabase.MIGRATION_1_2)
+            .build()
     }
 
     val repository by lazy {
